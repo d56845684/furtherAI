@@ -1,0 +1,54 @@
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: furtherai-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: furtherai
+      POSTGRES_USER: furtherai
+      POSTGRES_PASSWORD: furtherai
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U furtherai"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/backend.Dockerfile
+    container_name: furtherai-backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://furtherai:furtherai@db:5432/furtherai}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      MAX_REASONING_STEPS: ${MAX_REASONING_STEPS:-5}
+      ALLOW_MCP: ${ALLOW_MCP:-true}
+      ALLOW_TOOL_CALLING: ${ALLOW_TOOL_CALLING:-true}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-*}
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      APP_NAME: ${APP_NAME:-FurtherAI SQL Agent}
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/frontend.Dockerfile
+    container_name: furtherai-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "8080:80"
+
+volumes:
+  postgres_data:
