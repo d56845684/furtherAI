@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <title>FurtherAI SQL Agent</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #0f172a;
+        --panel: #1e293b;
+        --accent: #38bdf8;
+        --text: #e2e8f0;
+        --muted: #94a3b8;
+      }
+
+      body {
+        margin: 0;
+        font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+        background: linear-gradient(160deg, var(--bg), #020617);
+        color: var(--text);
+        display: flex;
+        flex-direction: column;
+        min-height: 100vh;
+      }
+
+      header {
+        padding: 1.5rem 2rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: rgba(15, 23, 42, 0.8);
+        backdrop-filter: blur(12px);
+        border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+      }
+
+      header h1 {
+        margin: 0;
+        font-size: 1.5rem;
+      }
+
+      main {
+        flex: 1;
+        display: grid;
+        grid-template-columns: 320px 1fr;
+        gap: 1rem;
+        padding: 1rem 2rem 2rem;
+      }
+
+      .sidebar {
+        background: rgba(30, 41, 59, 0.8);
+        border-radius: 16px;
+        padding: 1rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+        border: 1px solid rgba(148, 163, 184, 0.15);
+      }
+
+      .conversation {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+
+      .conversation button {
+        background: transparent;
+        border: 1px solid rgba(148, 163, 184, 0.3);
+        border-radius: 12px;
+        padding: 0.75rem;
+        color: inherit;
+        text-align: left;
+        cursor: pointer;
+        transition: border 0.2s, transform 0.2s;
+      }
+
+      .conversation button:hover,
+      .conversation button.active {
+        border-color: var(--accent);
+        transform: translateY(-1px);
+      }
+
+      .chat-panel {
+        background: rgba(15, 23, 42, 0.75);
+        border-radius: 16px;
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+
+      .messages {
+        flex: 1;
+        padding: 1.5rem;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+      }
+
+      .bubble {
+        max-width: 70ch;
+        padding: 1rem 1.25rem;
+        border-radius: 16px;
+        line-height: 1.5;
+        box-shadow: 0 10px 30px rgba(15, 23, 42, 0.4);
+      }
+
+      .bubble.user {
+        align-self: flex-end;
+        background: linear-gradient(135deg, #38bdf8, #0ea5e9);
+        color: #0f172a;
+      }
+
+      .bubble.agent {
+        align-self: flex-start;
+        background: rgba(30, 41, 59, 0.95);
+      }
+
+      form {
+        display: flex;
+        gap: 0.75rem;
+        padding: 1rem 1.5rem 1.5rem;
+        background: rgba(15, 23, 42, 0.9);
+        border-top: 1px solid rgba(148, 163, 184, 0.15);
+      }
+
+      textarea {
+        flex: 1;
+        resize: vertical;
+        min-height: 80px;
+        max-height: 240px;
+        padding: 0.75rem 1rem;
+        border-radius: 12px;
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        background: rgba(15, 23, 42, 0.9);
+        color: inherit;
+        font-family: inherit;
+      }
+
+      button[type='submit'] {
+        background: linear-gradient(135deg, #22d3ee, #0ea5e9);
+        border: none;
+        border-radius: 12px;
+        padding: 0 1.5rem;
+        font-weight: 600;
+        cursor: pointer;
+        color: #0f172a;
+        box-shadow: 0 8px 24px rgba(14, 165, 233, 0.3);
+      }
+
+      .config-panel {
+        margin-top: 1rem;
+        padding: 1rem;
+        border-radius: 12px;
+        background: rgba(15, 23, 42, 0.8);
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        display: grid;
+        gap: 0.75rem;
+      }
+
+      label {
+        display: flex;
+        flex-direction: column;
+        font-size: 0.85rem;
+        color: var(--muted);
+        gap: 0.35rem;
+      }
+
+      input,
+      select {
+        border-radius: 10px;
+        border: 1px solid rgba(148, 163, 184, 0.25);
+        padding: 0.5rem 0.75rem;
+        background: rgba(15, 23, 42, 0.9);
+        color: inherit;
+      }
+
+      @media (max-width: 960px) {
+        main {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>FurtherAI SQL Agent</h1>
+      <span id="status">未連線</span>
+    </header>
+    <main>
+      <aside class="sidebar">
+        <button id="new-convo">＋ 新增對話</button>
+        <div id="conversations" class="conversation"></div>
+        <section class="config-panel">
+          <label>
+            資料來源
+            <select id="datasource-type">
+              <option value="postgresql">PostgreSQL</option>
+              <option value="bigquery">BigQuery</option>
+              <option value="mysql">MySQL</option>
+              <option value="hivesql">HiveSQL</option>
+            </select>
+          </label>
+          <label>
+            Connection String
+            <input id="datasource-conn" placeholder="postgres://user:pass@host:5432/db" />
+          </label>
+          <label>
+            Schema
+            <input id="datasource-schema" placeholder="public" />
+          </label>
+        </section>
+      </aside>
+      <section class="chat-panel">
+        <div id="messages" class="messages"></div>
+        <form id="chat-form">
+          <textarea id="prompt" placeholder="輸入分析需求..." required></textarea>
+          <button type="submit">送出</button>
+        </form>
+      </section>
+    </main>
+    <script>
+      const apiBase = '/api';
+      let currentConversation = null;
+
+      async function fetchJSON(url, options = {}) {
+        const response = await fetch(url, {
+          headers: { 'Content-Type': 'application/json' },
+          ...options
+        });
+        if (!response.ok) {
+          throw new Error(await response.text());
+        }
+        return response.json();
+      }
+
+      function renderConversations(items) {
+        const container = document.getElementById('conversations');
+        container.innerHTML = '';
+        items.forEach((item) => {
+          const button = document.createElement('button');
+          button.textContent = item.title;
+          button.dataset.id = item.id;
+          if (item.id === currentConversation) {
+            button.classList.add('active');
+          }
+          button.addEventListener('click', () => {
+            currentConversation = item.id;
+            loadMessages();
+            renderConversations(items);
+          });
+          container.appendChild(button);
+        });
+      }
+
+      function appendMessage(role, content) {
+        const container = document.getElementById('messages');
+        const bubble = document.createElement('div');
+        bubble.classList.add('bubble', role === 'user' ? 'user' : 'agent');
+        bubble.textContent = content;
+        container.appendChild(bubble);
+        container.scrollTop = container.scrollHeight;
+      }
+
+      async function loadConversations() {
+        try {
+          const conversations = await fetchJSON(`${apiBase}/conversations`);
+          if (!currentConversation && conversations.length > 0) {
+            currentConversation = conversations[0].id;
+            loadMessages();
+          }
+          renderConversations(conversations);
+          document.getElementById('status').textContent = '已連線';
+        } catch (error) {
+          document.getElementById('status').textContent = '無法連線';
+        }
+      }
+
+      async function loadMessages() {
+        if (!currentConversation) return;
+        const container = document.getElementById('messages');
+        container.innerHTML = '';
+        const messages = await fetchJSON(`${apiBase}/conversations/${currentConversation}/messages`);
+        messages.forEach((msg) => appendMessage(msg.role, msg.content));
+      }
+
+      async function ensureConversation() {
+        if (currentConversation) return currentConversation;
+        const convo = await fetchJSON(`${apiBase}/conversations`, {
+          method: 'POST',
+          body: JSON.stringify({ title: '新對話' })
+        });
+        currentConversation = convo.id;
+        await loadConversations();
+        return currentConversation;
+      }
+
+      document.getElementById('new-convo').addEventListener('click', async () => {
+        const title = prompt('請輸入對話名稱', '新對話');
+        const convo = await fetchJSON(`${apiBase}/conversations`, {
+          method: 'POST',
+          body: JSON.stringify({ title: title || '新對話' })
+        });
+        currentConversation = convo.id;
+        await loadConversations();
+        document.getElementById('messages').innerHTML = '';
+      });
+
+      document.getElementById('chat-form').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const input = document.getElementById('prompt');
+        const text = input.value.trim();
+        if (!text) return;
+        input.value = '';
+        appendMessage('user', text);
+        const conversationId = await ensureConversation();
+
+        try {
+          const payload = {
+            conversationId,
+            userQuery: text,
+            dataSource: {
+              type: document.getElementById('datasource-type').value,
+              connectionString: document.getElementById('datasource-conn').value,
+              defaultSchema: document.getElementById('datasource-schema').value || undefined
+            }
+          };
+          const response = await fetchJSON(`${apiBase}/agent`, {
+            method: 'POST',
+            body: JSON.stringify(payload)
+          });
+          appendMessage('agent', `SQL:\n${response.sql}`);
+          if (response.followUp) {
+            appendMessage('agent', `建議：${response.followUp}`);
+          }
+        } catch (error) {
+          appendMessage('agent', `發生錯誤：${error.message}`);
+        }
+      });
+
+      loadConversations();
+    </script>
+  </body>
+</html>
