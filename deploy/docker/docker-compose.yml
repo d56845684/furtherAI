@@ -14,7 +14,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-
+    networks:
+      - furtherai-network
   backend:
     build:
       context: ../..
@@ -30,7 +31,6 @@ services:
       MAX_REASONING_STEPS: ${MAX_REASONING_STEPS:-5}
       ALLOW_MCP: ${ALLOW_MCP:-true}
       ALLOW_TOOL_CALLING: ${ALLOW_TOOL_CALLING:-true}
-      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-*}
       ENVIRONMENT: ${ENVIRONMENT:-production}
       APP_NAME: ${APP_NAME:-FurtherAI SQL Agent}
     ports:
@@ -38,7 +38,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
-
+    networks:
+      - furtherai-network
   frontend:
     build:
       context: ../..
@@ -49,6 +50,10 @@ services:
       - backend
     ports:
       - "8080:80"
-
+    networks:
+      - furtherai-network
 volumes:
   postgres_data:
+networks:
+  furtherai-network:
+    driver: bridge

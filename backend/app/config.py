@@ -1,5 +1,5 @@
 from functools import lru_cache
-from typing import List, Optional
+from typing import List, Optional, Union
 
 from pydantic import BaseSettings, Field, validator
 
@@ -22,10 +22,17 @@ class Settings(BaseSettings):
         case_sensitive = False
 
     @validator("allowed_origins", pre=True)
-    def split_origins(cls, value: str | List[str]) -> List[str]:
+    def split_origins(cls, value: Union[str, List[str]]) -> List[str]:
         if isinstance(value, list):
             return value
-        return [origin.strip() for origin in value.split(",") if origin.strip()]
+        if isinstance(value, str):
+            # Handle empty string or None
+            if not value or value.strip() == "":
+                return ["*"]
+            # Split by comma and strip whitespace
+            origins = [origin.strip() for origin in value.split(",") if origin.strip()]
+            return origins if origins else ["*"]
+        return ["*"]
 
 
 @lru_cache
